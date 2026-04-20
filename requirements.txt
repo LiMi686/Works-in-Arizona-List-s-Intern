@@ -1,3 +1,0 @@
-# This project currently uses only Python's standard library.
-# The virtual environment is still useful so IDEs and commands
-# consistently use the same interpreter.
