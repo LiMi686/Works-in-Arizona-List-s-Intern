@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="420" viewBox="0 0 980 420">
+<style>text { font-family: Arial, sans-serif; fill: #222; } .small { font-size: 12px; } .label { font-size: 12px; } .title { font-size: 20px; font-weight: bold; }</style>
+<rect x="0" y="0" width="980" height="420" fill="#ffffff"/>
+<text x="490.0" y="30" text-anchor="middle" class="title">Activist Code Definitions by Type</text>
+<line x1="80" y1="330" x2="940" y2="330" stroke="#444" stroke-width="1"/>
+<line x1="80" y1="70" x2="80" y2="330" stroke="#444" stroke-width="1"/>
+<line x1="76" y1="330.0" x2="940" y2="330.0" stroke="#e9e9e9" stroke-width="1"/>
+<text x="70" y="334.0" text-anchor="end" class="small">0</text>
+<line x1="76" y1="265.0" x2="940" y2="265.0" stroke="#e9e9e9" stroke-width="1"/>
+<text x="70" y="269.0" text-anchor="end" class="small">18</text>
+<line x1="76" y1="200.0" x2="940" y2="200.0" stroke="#e9e9e9" stroke-width="1"/>
+<text x="70" y="204.0" text-anchor="end" class="small">37</text>
+<line x1="76" y1="135.0" x2="940" y2="135.0" stroke="#e9e9e9" stroke-width="1"/>
+<text x="70" y="139.0" text-anchor="end" class="small">56</text>
+<line x1="76" y1="70.0" x2="940" y2="70.0" stroke="#e9e9e9" stroke-width="1"/>
+<text x="70" y="74.0" text-anchor="end" class="small">74</text>
+<rect x="80" y="70.0" width="69" height="260.0" fill="#0f766e" rx="4"/>
+<text x="114.5" y="62.0" text-anchor="middle" class="small">74</text>
+<text x="114.5" y="348" text-anchor="middle" class="label">Constituency</text>
+<rect x="167" y="178.9189189189189" width="69" height="151.0810810810811" fill="#0f766e" rx="4"/>
+<text x="201.5" y="170.9189189189189" text-anchor="middle" class="small">43</text>
+<text x="201.5" y="348" text-anchor="middle" class="label">Administrative</text>
+<rect x="254" y="189.45945945945945" width="69" height="140.54054054054055" fill="#0f766e" rx="4"/>
+<text x="288.5" y="181.45945945945945" text-anchor="middle" class="small">40</text>
+<text x="288.5" y="348" text-anchor="middle" class="label">Events</text>
+<rect x="341" y="242.16216216216216" width="69" height="87.83783783783784" fill="#0f766e" rx="4"/>
+<text x="375.5" y="234.16216216216216" text-anchor="middle" class="small">25</text>
+<text x="375.5" y="348" text-anchor="middle" class="label">Volunteer</text>
+<rect x="428" y="249.1891891891892" width="69" height="80.8108108108108" fill="#0f766e" rx="4"/>
+<text x="462.5" y="241.1891891891892" text-anchor="middle" class="small">23</text>
+<text x="462.5" y="348" text-anchor="middle" class="label">Profession</text>
+<rect x="515" y="273.7837837837838" width="69" height="56.21621621621622" fill="#0f766e" rx="4"/>
+<text x="549.5" y="265.7837837837838" text-anchor="middle" class="small">16</text>
+<text x="549.5" y="348" text-anchor="middle" class="label">Candidate</text>
+<rect x="602" y="280.81081081081084" width="69" height="49.189189189189186" fill="#0f766e" rx="4"/>
+<text x="636.5" y="272.81081081081084" text-anchor="middle" class="small">14</text>
+<text x="636.5" y="348" text-anchor="middle" class="label">Donor</text>
+<rect x="689" y="298.3783783783784" width="69" height="31.62162162162162" fill="#0f766e" rx="4"/>
+<text x="723.5" y="290.3783783783784" text-anchor="middle" class="small">9</text>
+<text x="723.5" y="348" text-anchor="middle" class="label">NGP 7</text>
+<rect x="776" y="301.8918918918919" width="69" height="28.10810810810811" fill="#0f766e" rx="4"/>
+<text x="810.5" y="293.8918918918919" text-anchor="middle" class="small">8</text>
+<text x="810.5" y="348" text-anchor="middle" class="label">Activism</text>
+<rect x="863" y="315.94594594594594" width="69" height="14.054054054054054" fill="#0f766e" rx="4"/>
+<text x="897.5" y="307.94594594594594" text-anchor="middle" class="small">4</text>
+<text x="897.5" y="348" text-anchor="middle" class="label">Activist</text>
+</svg>

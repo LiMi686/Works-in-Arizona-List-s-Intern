@@ -1,12 +1,16 @@
+import os
+import zipfile
+import tempfile
+import urllib.request
+
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import folium
-from folium.plugins import MarkerCluster
+import matplotlib.patches as mpatches
+import geopandas as gpd
 import pgeocode
-import sqlalchemy
 from sqlalchemy import create_engine, text
-import os
 
 ENGINE = create_engine(
     "postgresql+psycopg2://liml@localhost/arizona_list",
@@ -82,7 +86,7 @@ plt.close()
 print("✓ Saved: top20_zip_codes.png")
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 2. INTERACTIVE BUBBLE MAP — folium (all states, all ZIP codes)
+# 2. BUBBLE MAP — donor locations by total giving (all states, all ZIP codes)
 # ═══════════════════════════════════════════════════════════════════════════
 all_zip_summary = (
     contributions.groupby("zip")
@@ -91,52 +95,87 @@ all_zip_summary = (
 )
 
 nomi = pgeocode.Nominatim("us")
+geo = nomi.query_postal_code(all_zip_summary["zip"].tolist())
 zip_geo = all_zip_summary.copy()
-geo = nomi.query_postal_code(zip_geo["zip"].tolist())
 zip_geo["lat"] = geo["latitude"].values
 zip_geo["lon"] = geo["longitude"].values
 zip_geo = zip_geo.dropna(subset=["lat", "lon"])
+zip_geo = zip_geo[(zip_geo["lon"].between(-125, -66)) & (zip_geo["lat"].between(24, 50))]
 
-m = folium.Map(location=[38.0, -96.0], zoom_start=4, tiles="CartoDB positron")
+# US states basemap (cached)
+_states_zip = "/tmp/us_states.zip"
+if not os.path.exists(_states_zip):
+    urllib.request.urlretrieve(
+        "https://www2.census.gov/geo/tiger/GENZ2020/shp/cb_2020_us_state_20m.zip",
+        _states_zip,
+    )
+_tmpdir = tempfile.mkdtemp()
+with zipfile.ZipFile(_states_zip) as z:
+    z.extractall(_tmpdir)
+_shp = next(f for f in os.listdir(_tmpdir) if f.endswith(".shp"))
+conus = gpd.read_file(os.path.join(_tmpdir, _shp))
+conus = conus[~conus["STATEFP"].isin(["02", "15", "60", "66", "69", "72", "78"])]
 
-max_total = zip_geo["total"].max()
-p90 = zip_geo["total"].quantile(0.90)
+# Marker size: log-scaled to donation total
+log_total = np.log10(zip_geo["total"].clip(lower=1))
+zip_geo["size"] = 2 + 80 * ((log_total - log_total.min()) / (log_total.max() - log_total.min())) ** 1.5
 
-def zip_color(total):
-    t = total / max_total
-    if t >= 0.5:
-        return "#ff6d00", 0.90   # vivid orange — top tier
-    elif t >= 0.15:
-        return "#ff9a3c", 0.70   # medium orange — high
-    elif t >= 0.04:
-        return "#ffc285", 0.50   # light orange — mid
-    else:
-        return "#adb5bd", 0.35   # muted gray — low
+# Color tier by donation total
+TIERS = [
+    (1_000,   "#b0b7bf", 0.30, "< $1,000"),
+    (10_000,  "#f4a55a", 0.65, "$1,000 – $9,999"),
+    (50_000,  "#e8691e", 0.82, "$10,000 – $49,999"),
+    (100_000, "#c0392b", 0.92, "$50,000 – $99,999"),
+    (np.inf,  "#7b0e0e", 1.00, "≥ $100,000"),
+]
+
+def assign_tier(total):
+    for threshold, color, alpha, _ in TIERS:
+        if total < threshold:
+            return color, alpha
+    return TIERS[-1][1], TIERS[-1][2]
+
+zip_geo[["color", "alpha"]] = zip_geo["total"].apply(
+    lambda t: pd.Series(assign_tier(t))
+)
+zip_geo["tier_order"] = pd.cut(
+    zip_geo["total"],
+    bins=[0, 1_000, 10_000, 50_000, 100_000, np.inf],
+    labels=[0, 1, 2, 3, 4],
+).astype(int)
+zip_geo = zip_geo.sort_values("tier_order")
+
+fig, ax = plt.subplots(figsize=(15, 9.5), dpi=180)
+fig.patch.set_facecolor("white")
+conus.plot(ax=ax, color="#f0ede8", edgecolor="#c8c0b8", linewidth=0.6, zorder=1)
 
 for _, row in zip_geo.iterrows():
-    ratio = row["total"] / max_total
-    radius = 5 + ratio * 45
-    color, opacity = zip_color(row["total"])
-    folium.CircleMarker(
-        location=[row["lat"], row["lon"]],
-        radius=radius,
-        color=color,
-        fill=True,
-        fill_color=color,
-        fill_opacity=opacity,
-        weight=1 if ratio < 0.04 else 1.5,
-        popup=folium.Popup(
-            f"<b>ZIP: {row['zip']}</b><br>"
-            f"Total: ${row['total']:,.0f}<br>"
-            f"Donations: {row['count']:,}",
-            max_width=200,
-        ),
-        tooltip=f"ZIP {row['zip']}: ${row['total']:,.0f}",
-    ).add_to(m)
+    ax.scatter(row["lon"], row["lat"], s=row["size"], c=row["color"], alpha=row["alpha"],
+               linewidths=0.4 if row["total"] >= 10_000 else 0,
+               edgecolors="white", zorder=2 + row["tier_order"])
 
-map_path = f"{OUT}/donor_location_map.html"
-m.save(map_path)
-print(f"✓ Saved: donor_location_map.html")
+ax.set_xlim(-125, -66)
+ax.set_ylim(24.5, 49.5)
+ax.set_aspect("equal")
+ax.axis("off")
+ax.set_title("Donor Locations by Total Giving", fontsize=17, fontweight="bold",
+             color="#1a1a1a", loc="left", pad=14, x=0.01)
+ax.text(0.01, 0.96, f"n = {len(zip_geo):,} ZIP codes", transform=ax.transAxes,
+        fontsize=9, color="#666666", va="top")
+
+handles = [
+    mpatches.Patch(facecolor=color, alpha=alpha, edgecolor="#999", linewidth=0.5, label=label)
+    for _, color, alpha, label in TIERS
+]
+leg = ax.legend(handles=handles, title="Total Giving (per ZIP)", title_fontsize=8.5,
+                fontsize=8, loc="lower left", framealpha=0.95,
+                edgecolor="#cccccc", fancybox=False, borderpad=0.8)
+leg._legend_box.align = "left"
+
+plt.tight_layout(pad=0.3)
+plt.savefig(f"{OUT}/donor_location_map.png", dpi=200, bbox_inches="tight", facecolor="white")
+plt.close()
+print("✓ Saved: donor_location_map.png")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. TIME SERIES — Line chart (yearly amount) + Bar chart (yearly count) + Table
