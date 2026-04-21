@@ -1,7 +1,6 @@
 # Arizona List — Fundraising Data Analysis: Technical Summary
 
-**Database:** PostgreSQL `arizona_list` (imported from EveryAction CRM)  
-**Analysis Date:** April 20, 2026  
+**Database:** PostgreSQL `arizona_list` (imported from EveryAction CRM)   
 **Data Coverage:** 2004–2026
 
 ---
@@ -107,7 +106,7 @@ The LC represents just 5% of the full donor base — an intentionally exclusive 
 ## 3. Direct Mail Opportunity: People Without an Email Address
 
 ### The Question
-How many people in the database can only be reached by mail — meaning direct mail is our only option for proactive outreach?
+How many people in the database can only be reached by mail which means direct mail is our only option for proactive outreach?
 
 ### Approach
 
