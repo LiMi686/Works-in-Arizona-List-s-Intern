@@ -394,3 +394,26 @@ CREATE TABLE activist_codes_applied (
 | `activist_codes_applied` — composite PK | ⚠️ NOTE | `VANID + ActivistCodeID` has 2 duplicate pairs; `date_created` added as 3rd PK column |
 | `activist_codes` — primary key | ⚠️ NOTE | Source file (`Activist Code List 2.xlsx`) has no numeric ID; `long_name` used as PK |
 | `tags` — foreign key linkage | ⚠️ NOTE | No direct FK to other tables; `online_actions.Activist_Codes` stores pipe-delimited names (not normalized) |
+
+---
+
+## Schema Changes (April 2026)
+
+### Fix 1 — Circular FK removed (`contacts.address_id`)
+`contacts.address_id` and its foreign key constraint `fk_contact_preferred_addr` have been dropped. The circular dependency between `contacts` and `addresses` is resolved. To retrieve a contact's preferred address, query `addresses` directly:
+```sql
+SELECT * FROM addresses WHERE vanid = :vanid AND is_preferred = TRUE LIMIT 1
+```
+
+### Fix 2 — Deduplication view for donation totals (`contributions_full`)
+`online_actions` donation records (where `amount > 0`) overlap with `contributions` — 4,910 of 4,943 online donations appear in both tables. A view `contributions_full` has been created that unions both tables while excluding duplicates. **Always use `contributions_full` when computing total donation amounts** to avoid double-counting.
+```sql
+-- 53,053 rows, $7,950,992 total (vs contributions alone: 53,020 rows, $7,947,093)
+SELECT COUNT(*), SUM(amount) FROM contributions_full
+```
+
+### Fix 3 — Denormalized fields corrected (`contacts`)
+5 contacts had `total_amount_of_contributions` and/or `number_of_contributions` out of sync with the `contributions` table. All 5 records have been corrected. Zero discrepancies remain.
+
+### Fix 4 — `tags` table documented as unlinked
+A table comment has been added to `tags` marking it as unlinked. Tag-to-contact associations were not included in the EveryAction data export. The table exists as a reference but cannot be used for contact-level queries.
