@@ -39,6 +39,9 @@ with ENGINE.connect() as conn:
         FROM contributions co
         JOIN contacts c ON co.vanid = c.vanid
         WHERE co.amount > 0
+          AND COALESCE(NULLIF(TRIM(c.official_name), ''),
+                       NULLIF(TRIM(c.first || ' ' || c.last), ''),
+                       'Unknown') NOT ILIKE '%Pam Grissom%'
         ORDER BY co.amount DESC
         LIMIT 10
     """), conn)
