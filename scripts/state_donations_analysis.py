@@ -86,6 +86,7 @@ for i, state in enumerate(top12_states):
     ax.set_title(state, fontsize=11, fontweight="bold")
     ax.tick_params(axis="x", rotation=45, labelsize=7)
     ax.tick_params(axis="y", labelsize=7)
+    ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(
         lambda x, _: f"${x/1e6:.1f}M" if x >= 1e6 else f"${x/1e3:.0f}K"))
     ax.grid(axis="y", alpha=0.3)
@@ -115,6 +116,7 @@ for i, state in enumerate(non_az):
     ax.set_title(state, fontsize=11, fontweight="bold")
     ax.tick_params(axis="x", rotation=45, labelsize=7)
     ax.tick_params(axis="y", labelsize=7)
+    ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(
         lambda x, _: f"${x/1e6:.1f}M" if x >= 1e6 else f"${x/1e3:.0f}K"))
     ax.grid(axis="y", alpha=0.3)

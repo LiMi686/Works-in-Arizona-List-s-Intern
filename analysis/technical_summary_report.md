@@ -1,6 +1,13 @@
-# Arizona List — Fundraising Data Analysis: Technical Summary
+# Arizona List Datasets & Data Analysis Summary
 
-**Database:** PostgreSQL `arizona_list` (imported from EveryAction CRM)   
+## Before that, We want to say thanks to you all!
+First, a big thank you to Arizona List for sharing your data and giving us this hands-on opportunity. We truly appreciate the trust. Also A big thank you to all Arizona List staffs for your patience, care, and support! It means a lot to have a team that genuinely invests in interns' growth.
+
+And this analysis was put together using our data science background alongside AI assistance and vibe coding. Still a work in progress, but hoping this gives a useful first look at the data.
+
+## Database
+
+**Database:** PostgreSQL `arizona_list` (imported the data that memo sent to us)   
 **Data Coverage:** 2004–2026
 
 ---
@@ -8,33 +15,27 @@
 ## Table of Contents
 
 1. [Database Overview](#1-database-overview)
-2. [Donor Universe vs. Leadership Council](#2-donor-universe-vs-leadership-council)
+2. [Total Donors and Leadership Council Members](#2-total-donors-and-leadership-council-members)
 3. [Direct Mail Opportunity: People Without an Email Address](#3-direct-mail-opportunity-people-without-an-email-address)
 4. [New Contacts Since January: Postcard Outreach](#4-new-contacts-since-january-postcard-outreach)
 5. [Lapsed Donor Identification and Priority Tiering](#5-lapsed-donor-identification-and-priority-tiering)
 6. [Geographic Breakdown: State-Level Comparison](#6-geographic-breakdown-state-level-comparison)
 7. [Geographic Breakdown: ZIP Code Heat Analysis](#7-geographic-breakdown-zip-code-heat-analysis)
-8. [Donation Trends: Year-Over-Year Time Series](#8-donation-trends-year-over-year-time-series)
-9. [Top 10 Largest Individual Donations](#9-top-10-largest-individual-donations)
+8. [Geographic Trends: City and County Over Time](#8-geographic-trends-city-and-county-over-time)
+9. [Donation Trends: Year-Over-Year Time Series](#9-donation-trends-year-over-year-time-series)
+10. [Top 10 Largest Individual & Organization Donations](#10-top-10-largest-individual--organization-donations)
 
 ---
 
 ## 1. Database Overview
 
-### The Question
-Before diving into any specific analysis, we need to understand what we're working with — how many records do we have, how many unique donors, and what time period does the data cover?
+Before diving into any specific analysis, we need to understand what we're working with:
+- how many records do we have?
+- how many unique donors?
+- and what time period does the data cover?
 
 ### Approach
-This is a baseline data quality check. Running it first ensures that every downstream analysis is grounded in a reliable picture of the data.
-
-```sql
-SELECT COUNT(*)                 AS contribution_rows,
-       COUNT(DISTINCT co.vanid) AS distinct_donors,
-       MIN(co.date_received)    AS first_gift,
-       MAX(co.date_received)    AS latest_gift
-FROM contributions co
-JOIN contacts c ON co.vanid = c.vanid
-```
+This is a baseline data quality check. We counted total donation records, unique donors, and the date range of the data. The key distinction here is between counting records and counting people — one donor who gives 10 times appears as 10 records but still counts as 1 person.
 
 ### What We Found
 
@@ -42,22 +43,21 @@ JOIN contacts c ON co.vanid = c.vanid
 |--------|-------|
 | Total contribution records | 53,020 |
 | Unique donors | 7,769 |
-| Earliest gift on record | January 15, 2004 |
-| Most recent gift | April 9, 2026 |
+| Earliest donation on record | January 15, 2004 |
+| Most recent donation | April 9, 2026 |
 
 Over 22 years of giving history — a strong foundation for longitudinal analysis.
 
 ---
 
-## 2. Donor Universe vs. Leadership Council
+## 2. Total Donors and Leadership Council Members
 
 ### The Question
 How many people in the database are Leadership Council (LC) members, and what share of total donors do they represent?
 
 ### Approach
 
-**Step 1 — Figure out how LC membership is recorded.**
-There's no single "LC member" field in the database. We searched across three tables for any LC-related signals:
+There is no single "LC member" field in the database. We searched across three separate data sources for any LC-related signals:
 
 | Signal Source | Identifier | People |
 |--------------|------------|--------|
@@ -65,27 +65,9 @@ There's no single "LC member" field in the database. We searched across three ta
 | Contribution source codes | Contains "LC" (e.g., `23TucsonLCBrief`, `25AprilLCPhx`) | 116 |
 | Online action source codes | Contains "LC" | 95 |
 
-**Step 2 — Why union all three signals instead of just using the pin codes?**
-The pin codes were applied as mailing list operation tags for thank-you letters in 2019 and 2020 — they were never meant to be a comprehensive LC membership list. Anyone who attended LC events after 2021 has no pin code on record but is clearly an LC member based on their donation source codes. The three signals cover different time periods and workflows, so they complement rather than duplicate each other.
+We combined all three sources rather than relying on any single one, because each covers a different time period and workflow. The pin codes, for example, were only applied in 2019–2020 and would miss anyone who joined the LC after 2021. Anyone appearing in any of the three sources is counted as an LC member — no double-counting.
 
-**Step 3 — A note on data coverage before 2019.**
-The `activist_codes_applied` table only goes back to September 2021. The earliest LC-related contribution source code is from July 2018. Anyone who joined the LC before 2019 and hasn't participated since is effectively invisible in this dataset — a known gap we can't close with the current data.
-
-```sql
-WITH lc_members AS (
-    SELECT vanid FROM activist_codes_applied WHERE activist_code_name IN ('19LCPin', '20LCPin')
-    UNION
-    SELECT vanid FROM contributions WHERE lower(source_code) LIKE '%lc%'
-    UNION
-    SELECT vanid FROM online_actions WHERE lower(source_code) LIKE '%lc%'
-)
-SELECT
-    (SELECT COUNT(DISTINCT vanid) FROM contributions WHERE amount > 0) AS total_donors,
-    COUNT(DISTINCT vanid)                                               AS lc_members,
-    ROUND(100.0 * COUNT(DISTINCT vanid) /
-          (SELECT COUNT(DISTINCT vanid) FROM contributions WHERE amount > 0), 1) AS lc_pct_of_donors
-FROM lc_members
-```
+One known gap: records before 2019 are incomplete, so LC members who joined early and haven't engaged since may not appear in the data.
 
 ### What We Found
 
@@ -101,12 +83,16 @@ The LC represents just 5% of the full donor base — an intentionally exclusive 
 
 ![Donors vs. Leadership Council](lapsed_donor_reactivation/figures/donor_vs_leadership_council.svg)
 
+- The LC is a small, elite segment — 386 people out of nearly 8,000 donors.
+- 95% of donors have never been formally identified as LC members, representing a large pool of potential candidates for cultivation.
+- Because pre-2019 data is incomplete, the true LC membership count is likely higher than 386.
+
 ---
 
 ## 3. Direct Mail Opportunity: People Without an Email Address
 
 ### The Question
-How many people in the database can only be reached by mail which means direct mail is our only option for proactive outreach?
+How many people in the database can only be reached by mail — making direct mail our only option for proactive outreach?
 
 ### Approach
 
@@ -122,46 +108,24 @@ All "Person" contacts in the database (79,830)
 
 Each intermediate layer has its own value: the "complete address" count tells us our total direct mail capacity; the "no email" count tells us the full scope of our digital blind spot; the intersection gives us the actionable list.
 
-**Key technical decision: EXISTS instead of JOIN**
-
-The `addresses` table is one-to-many — one person can have multiple address records. A direct JOIN would inflate the count, because 8,483 people in this database have more than one row where `is_best_address = TRUE`. Using EXISTS instead asks a simple yes/no question per person: "does at least one qualifying address exist for this person?"
-
-```sql
-COUNT(*) FILTER (WHERE EXISTS (
-    SELECT 1 FROM addresses a
-    WHERE a.vanid = c.vanid
-      AND a.is_best_address = TRUE
-      AND a.is_complete_address = TRUE
-))
-```
-
-**Why `is_best_address + is_complete_address`?**
-
-The `addresses` table has four boolean flags. Here's how we evaluated each:
-
-| Flag | Rows = TRUE | Decision |
-|------|-------------|----------|
-| `is_preferred` | 18,383 | ✗ Only 19% coverage — too narrow |
-| `is_best_address` | 82,650 | ✓ System-assigned best address, broad coverage |
-| `is_complete_address` | 74,628 | ✓ Confirms all required fields are filled in |
-| `usps_verified` | 72,017 | ✗ Many deliverable addresses were never submitted for USPS verification — too aggressive |
-
-Using both `is_best_address` and `is_complete_address` together ensures the address is both the system's best guess and actually deliverable — not just a city name with no street.
+For the address check, we required both a system-verified best address and confirmed that all address fields are filled in — not just a city name with no street.
 
 ### What We Found
 
-| Metric | Count | What It Means |
+| Metric | Count | Which means |
 |--------|-------|---------------|
 | Total "Person" contacts | 79,830 | Full database headcount |
-| With a complete mailing address | 54,703 | Upper bound for any direct mail campaign |
-| No email on file | 19,319 | Total size of our digital blind spot |
+| With a complete mailing address | 54,703 | All people who has a complete mailing address |
+| No email on file | 19,319 | People who don't have email in our system |
 | **Mailable + no email** | **16,440** | **Direct mail is the only way to reach them** |
-
-16,440 people can't receive an email from us. If we don't mail them, we have no way to reach out at all.
 
 ### Chart
 
 ![Direct Mail Opportunity](lapsed_donor_reactivation/figures/mailing_no_email_opportunity.svg)
+
+- 16,440 people cannot receive an email from us — if we don't mail them, we have no way to reach out at all.
+- This group represents about 20% of all contacts in the database, a significant audience that is currently unreachable through digital channels.
+- The gap between "no email" (19,319) and "mailable + no email" (16,440) shows that roughly 2,900 people have neither a usable email nor a complete mailing address — entirely out of reach by any channel.
 
 ---
 
@@ -172,23 +136,7 @@ Among people added to the database since January 1, 2026, who has a complete mai
 
 ### Approach
 
-**Why not just use the 16,440 from the previous analysis?**
-That's a long-term audience pool — we can't mail all 16,440 at once. Slicing by recency gives us a smaller, time-sensitive list with two advantages:
-1. **Timing matters:** New contacts are most receptive right after they're added. A welcome postcard sent within weeks of someone joining lands very differently than one sent a year later.
-2. **Operational fit:** This becomes a repeatable workflow — refresh the date parameter each quarter, and you always have a fresh postcard list ready to go.
-
-**A note on address logic here vs. Section 3:**
-In Section 3, we used EXISTS to count people accurately without duplicates. Here, we need to actually export street addresses for mailing, so we JOIN to the `addresses` table and filter to `is_preferred = TRUE` — one row per person, clean list, ready to hand off.
-
-```sql
-SELECT c.vanid, a.street_address, a.city, a.state, a.zip, c.date_created
-FROM contacts c
-JOIN addresses a ON c.vanid = a.vanid AND a.is_preferred = TRUE
-WHERE c.type_of_contact = 'Person'
-  AND c.date_created >= '2026-01-01'
-  AND c.preferred_email IS NULL AND c.other_email IS NULL
-  AND (c.no_mail = FALSE OR c.no_mail IS NULL)
-```
+Rather than mailing all 16,440 people at once, we slice by recency to create a smaller, time-sensitive list. New contacts are most receptive shortly after being added to the system. This query is also designed to be repeatable — update the start date each quarter and it automatically produces a fresh list.
 
 ### What We Found
 
@@ -203,7 +151,6 @@ WHERE c.type_of_contact = 'Person'
 | Figuroa, Lauren | Peoria | AZ | 2026-01-19 | — |
 | Jewel, Jasmine | Flagstaff | AZ | 2026-01-19 | — |
 
-A small list — but the value here is the process, not the volume. Run it again next quarter and it'll surface the next batch automatically.
 
 ### Chart & Export
 
@@ -211,34 +158,36 @@ A small list — but the value here is the process, not the volume. Run it again
 
 📄 **Export:** [people_added_since_january_postcard_outreach.csv](lapsed_donor_reactivation/people_added_since_january_postcard_outreach.csv)
 
+- The current list is small (6 people), but the process is what matters — run it again next quarter and it will automatically surface the next batch.
+- 5 of the 6 are in Arizona, consistent with our core geographic base.
+- One contact (Bradford Coleman, AR) is outside Arizona, suggesting some national reach through referrals or events.
+
 ---
 
 ## 5. Lapsed Donor Identification and Priority Tiering
 
 ### The Question
-Which consistent donors have stopped giving — and among them, who should we prioritize for re-engagement outreach?
+Which consistent donors have stopped giving? And among them, who should we prioritize for re-engagement outreach?
 
 ### Approach
 
-**Why not just pull everyone who didn't give last year?**
-That list would be massive and full of noise. A one-time donor who gave in 2019 and never came back isn't "lapsed" — they were never really engaged to begin with. We want people who built a real giving habit and then went quiet. That distinction drives the entire methodology.
-
-**Three qualification criteria:**
+We need to find truly high-quality donors, not those who make a single donation and then stop giving.
+So we set up three qualification criteria here: 
 
 **Criterion 1 — Consistency**
 ```
 giving_years ≥ 3  AND  longest_streak ≥ 3
 ```
 We require both because each catches a different failure mode:
-- Giving years alone misses the person who gave in 2010, 2016, and 2024 — technically 3 years, but no pattern.
+- Giving years alone misses the person who gave in 2010, 2016, and 2024, technically 3 years, but no pattern.
 - Streak alone misses the person who gave consistently for 3 years, stopped for 10, then gave once more.
 Together, they identify people who built a genuine, unbroken giving habit.
 
 **Criterion 2 — Lapse window**
 ```
-Last gift between 1 and 5 years ago
+Last donation between 1 and 5 years ago
 ```
-Under 1 year: they might just be early in their annual cycle — not truly lapsed.
+Under 1 year: they might just be early in their annual cycle, which means they are not truly lapsed.
 Over 5 years: the relationship has likely gone cold. Re-engagement cost is high, success rate is low. Out of scope for this campaign.
 
 **Criterion 3 — High value**
@@ -246,25 +195,7 @@ Over 5 years: the relationship has likely gone cold. Re-engagement cost is high,
 At least one year with annual giving ≥ $250
 ```
 
-**How we calculated consecutive giving streaks — the Gaps-and-Islands pattern:**
-
-Standard SQL aggregation can't directly measure streak length. We used a window function trick:
-
-```sql
-gift_year - ROW_NUMBER() OVER (PARTITION BY vanid ORDER BY gift_year) AS island
-```
-
-This difference stays constant within any unbroken run of consecutive years:
-
-| gift_year | row_number | Difference |
-|-----------|-----------|------------|
-| 2018 | 1 | 2017 ← same island |
-| 2019 | 2 | 2017 |
-| 2020 | 3 | 2017 |
-| 2022 | 4 | 2018 ← new island |
-| 2023 | 5 | 2018 |
-
-The largest island size per donor = their longest consecutive giving streak.
+To detect consecutive giving streaks, we used a mathematical pattern where a donor's giving years are compared against a sequential counter — any break in the sequence reveals a gap in giving. The longest unbroken run is then used as the streak length.
 
 **Priority tier design — two dimensions crossed:**
 
@@ -273,7 +204,7 @@ The largest island size per donor = their longest consecutive giving streak.
 | **High value ($250+)** | Tier 1 | Tier 2 |
 | **Not high value** | Tier 3 | Tier 4 |
 
-Value outranks recency in the ordering. A donor who gave $500/year for a decade and lapsed 4 years ago is a stronger re-engagement prospect than someone who gave $50/year for 3 years and lapsed 6 months ago — even though the latter is more recent. The investment required to win back a high-value donor is the same; the potential return is not.
+Value outranks recency in the ordering. A donor who gave $500/year for a decade and lapsed 4 years ago is a stronger re-engagement prospect than someone who gave $50/year for 3 years and lapsed 6 months ago, even though the latter is more recent.
 
 ### What We Found
 
@@ -293,11 +224,15 @@ Value outranks recency in the ordering. A donor who gave $500/year for a decade 
 | Longest consecutive streak | 5.3 years |
 | Lifetime giving amount | $3,044 |
 
-209 of the 352 (59%) have at least one $250+ giving year — a strong signal that this cohort has real re-engagement potential.
+209 of the 352 (59%) have at least one $250+ giving year. This is a strong signal that this cohort has real re-engagement potential.
 
 ### Chart & Exports
 
 ![Lapsed Donor Priority Tiers](lapsed_donor_reactivation/figures/lapsed_donor_priority_tiers.svg)
+
+- 209 out of 352 lapsed donors (59%) have previously given $250 or more in a single year — these are high-value relationships worth investing in to recover.
+- The average lapsed donor gave for 7.4 years with an average lifetime total of $3,044, indicating deep commitment before they stopped.
+- Tier 1 (85 people) represents the most urgent opportunity: high-value donors who lapsed within the last 2 years, while the relationship is still relatively fresh.
 
 📄 **Full candidate list:** [lapsed_consistent_donors.csv](lapsed_donor_reactivation/lapsed_consistent_donors.csv) — 352 rows  
 📄 **High-value segment ($250+):** [lapsed_consistent_donors_250plus.csv](lapsed_donor_reactivation/lapsed_consistent_donors_250plus.csv) — 209 rows
@@ -311,19 +246,15 @@ Where do our donors come from? How does giving volume and donor quality vary by 
 
 ### Approach
 
-The original city-level analysis only looked at Arizona. Expanding to all states opens up a more strategic question: which states represent high-potential audiences we may be underinvesting in?
+The original analysis only looked at Arizona. Expanding to all states opens up a more strategic question: which states represent high-potential audiences we may be underinvesting in?
 
-**The key metric we added: average gift size.**
+Total donation amount alone will always make AZ look dominant — it's where most of our donors live. But average donation size measures something different: individual donor capacity. A state with 20 donors averaging $1,500 per donation tells a very different story than a state with 500 donors averaging $50.
 
-Total amount alone will always make AZ look dominant — it's where most of our donors live. But average gift size measures something different: individual donor capacity. A state with 20 donors averaging $1,500 per gift tells a very different story than a state with 500 donors averaging $50.
-
-**Why we produced two versions of the trend charts:**
-
-AZ's total giving ($5.87M) is over 11x the next highest state ($509K). On a shared y-axis, every other state flatlines at the bottom. To actually see year-over-year movement in non-AZ states, we built a second chart with AZ removed — same data, different lens.
+Because AZ's total ($5.87M) is over 11x the next highest state ($509K), we produced two versions of the trend chart — one including AZ to show the full picture, and one excluding AZ so year-over-year movement in other states is actually visible.
 
 ### What We Found
 
-| State | Total Amount | Gifts | Avg Gift |
+| State | Total Amount | Number of Donations | Avg Donation Amount |
 |-------|-------------|-------|----------|
 | AZ | $5,868,051 | 45,229 | $130 |
 | CA | $508,850 | 719 | $708 |
@@ -332,18 +263,20 @@ AZ's total giving ($5.87M) is over 11x the next highest state ($509K). On a shar
 | TX | $51,534 | 58 | $889 |
 | NV | $20,351 | 62 | $328 |
 
-DC and MA donors give 10–13x more per transaction than AZ donors on average. A targeted high-value outreach strategy for those markets could yield outsized returns relative to the effort.
-
 ### Charts
 
 **Top 15 states by total giving:**
 ![State Donations Total](figures/state_donations_total.png)
 
+- Arizona dominates total volume with $5.87M — more than 11x the next highest state — reflecting our core geographic base.
+- California and DC are nearly tied on total amount ($509K vs $505K), but DC has far fewer donors (317 vs 719), meaning DC donors give significantly more per person.
+
 **Year-over-year trends — top 12 states (including AZ):**
 ![State Donation Trends](figures/state_donations_trends.png)
 
-**Year-over-year trends — top 11 states (excluding AZ):**
-![State Donation Trends Non-AZ](figures/state_donations_trends_nonaz.png)
+- AZ shows strong growth in 2024, reaching a record high of ~$700K — a notable acceleration after relatively flat years from 2017 to 2023.
+- Most non-AZ states show concentrated spikes in 2023–2024, suggesting election-cycle driven giving rather than consistent year-round engagement.
+- CA and DC have grown substantially since 2021, indicating expanding national reach.
 
 ---
 
@@ -354,10 +287,8 @@ Which ZIP codes drive the most giving? And where are our donors located across t
 
 ### Approach
 
-Two complementary visuals answer this from different angles:
-
 **① Top 20 ZIP Code bar chart**
-Aggregates total amount and gift count by ZIP from PostgreSQL, ranks, and renders as a horizontal bar chart with inline annotations. Straightforward, useful for local field planning.
+Aggregates total amount and donation count by ZIP from PostgreSQL, ranks, and renders as a horizontal bar chart with inline annotations. Straightforward, useful for local field planning.
 
 **② National donor location bubble map**
 - Used `pgeocode` to convert ZIP codes to lat/lon coordinates
@@ -372,44 +303,102 @@ The map answers the question the bar chart can't: are we geographically concentr
 **Top 20 ZIP Codes by total giving:**
 ![Top 20 ZIP Codes](figures/top20_zip_codes.png)
 
+- ZIP 85718 (Tucson foothills) alone accounts for $1.68M — nearly 3x the second-ranked ZIP — driven partly by a small number of very large donors in that area.
+- The top 5 ZIP codes are all in the 857xx range (Tucson), reflecting strong geographic concentration in one city.
+- ZIP 85004 (downtown Phoenix) ranks 3rd despite having only 218 donations, suggesting a cluster of high-capacity donors rather than broad community giving.
+
+**Top 20 ZIP Codes by total giving (excluding Pam Grissom — founder, not counted as donor):**
+![Top 20 ZIP Codes excl. Grissom](figures/top20_zip_codes_excl_grissom.png)
+
+- After removing Pam Grissom's contributions, 85718 drops from $1.68M to $569K, revealing how much of that ZIP's total was driven by a single donor.
+- The ranking otherwise remains largely stable, confirming that the broader geographic patterns are genuine and not distorted by individual outliers.
+- This version gives a more accurate picture of community-level giving by ZIP code.
+
 **National donor location map:**
 ![Donor Location Map](figures/donor_location_map.png)
 
+- The vast majority of donors are concentrated in southern Arizona, particularly in the Tucson and Phoenix metro areas.
+- A meaningful cluster is visible on the East Coast (DC, MA, NY), consistent with the high average donation amounts seen in those states.
+- Overall, the donor base is geographically concentrated — national reach exists but is thin outside of Arizona.
+
 ---
 
-## 8. Donation Trends: Year-Over-Year Time Series
+## 8. Geographic Trends: City and County Over Time
 
 ### The Question
-How have donation amounts and gift counts trended over time in Arizona? Which years were peaks, and which were down years?
+How have donation patterns shifted across cities and counties year over year?
+
+### Charts
+
+**City over time — number of donations (top 20 cities):**
+![City Donations Count](figures/city_donations_count.png)
+
+- Tucson consistently leads in donation volume by a wide margin, with Phoenix a distant second.
+- Most cities show a noticeable uptick in donation count starting around 2022–2024, aligning with election cycle activity.
+- Smaller cities like Green Valley and Oro Valley show steady, low-volume giving — loyal but limited in scale.
+
+**City over time — total amount (top 20 cities):**
+![City Donations Amount](figures/city_donations_amount.png)
+
+- Tucson and Phoenix dominate total dollar amounts, but Phoenix shows stronger growth in 2024–2025, narrowing the gap with Tucson.
+- Paradise Valley stands out: relatively few donations but a sharp spike in amount in 2025, indicating a small number of very large donations from a wealthy area.
+- Several mid-sized cities (Flagstaff, Mesa, Scottsdale) show consistent growth in total amount since 2020.
+
+**County over time — number of donations (top 20 counties):**
+![County Donations Count](figures/county_donations_count.png)
+
+- Pima County (Tucson) accounts for the overwhelming majority of donations by count, with Maricopa County (Phoenix) in second.
+- Most other counties contribute very small donation volumes, confirming that giving is highly concentrated in two metro areas.
+
+**County over time — total amount (top 20 counties):**
+![County Donations Amount](figures/county_donations_amount.png)
+
+- Pima County leads total amount every year, but Maricopa County's share has grown steadily, suggesting Phoenix is becoming a more significant funding base.
+- Out-of-state counties (visible in the lower panels) contribute sporadically, driven by individual large donors rather than sustained community engagement.
+
+---
+
+## 9. Donation Trends: Year-Over-Year Time Series
+
+### The Question
+How have donation amounts and donation counts trended over time in Arizona? Which years were peaks, and which were down years?
 
 ### Approach
 
-We tracked two metrics in parallel — total dollar amount and total number of gifts — because they can move in different directions. A year with fewer but larger gifts looks very different from a year with more but smaller gifts. Both matter, and neither alone tells the full story.
+We tracked two metrics in parallel — total dollar amount and total number of donations — because they can move in different directions. A year with fewer but larger donations looks very different from a year with more but smaller donations. Both matter, and neither alone tells the full story.
 
 Data is scoped to 2010–2026. Years before 2010 have sparse records that would distort the trend line without adding meaningful signal.
 
 ### Charts
 
-**Annual donation amount (line) and gift count (bar):**
+**Annual donation amount (line) and donation count (bar):**
 ![Donation Trends](figures/donation_trends.png)
+
+- 2024 was the strongest year on record by total amount (~$711K), followed by 2025 (~$558K) — two consecutive record-breaking years.
+- Donation counts have grown steadily from ~2,100 in 2010 to nearly 4,000 in 2025, reflecting a growing and more engaged donor base.
+- 2018 was an earlier peak in both count and amount, likely driven by election-year mobilization, followed by a dip in 2019–2021.
 
 **Year-by-year summary table:**
 ![Donation Trends Table](figures/donation_trends_table.png)
 
 ---
 
-## 9. Top 10 Largest Individual Donations
+## 10. Top 10 Largest Individual & Organization Donations
 
 ### The Question
-What are the largest single gifts ever recorded in the database, and who made them?
+What are the largest single donations ever recorded in the database, and who made them?
 
 ### Approach
 
-Pulled the top 10 rows from `contributions` ordered by amount descending, joined to `contacts` for donor details. Name display uses a COALESCE chain: `official_name` first, then `first + last`, then "Unknown" — to handle the mix of individual and organizational donors cleanly.
+Pulled the top 10 rows from `contributions` ordered by amount descending, joined to `contacts` for donor details. Name display prioritizes the official organization name where available, then falls back to first and last name — to handle the mix of individual and organizational donors cleanly.
 
 ### Chart
 
 ![Top 10 Donations](figures/top10_donations.png)
+
+- The largest single donation ($90,000 from Movement Voter PAC) is an organizational gift, not an individual one — highlighting the importance of institutional relationships alongside individual donors.
+- Pam Grissom appears three times in the top 10, with donations of $40K, $40K, and $35K, confirming her status as the most significant individual donor in the database.
+- Arizona for Abortion Access appears twice (rank 2 and 4), suggesting a recurring organizational giving relationship tied to specific campaigns or ballot measures.
 
 ---
 
