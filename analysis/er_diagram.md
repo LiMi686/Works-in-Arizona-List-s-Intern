@@ -7,7 +7,6 @@ erDiagram
 
     contacts {
         int     VANID                       PK
-        int     AddressID                   FK
         string  First
         string  Last
         string  Prefix
@@ -115,20 +114,21 @@ erDiagram
 
     activist_codes_applied {
         int     VANID                       FK
-        string  ActivistCodeName            FK
-        int     ActivistCodeID
+        int     ActivistCodeID              FK
+        date    DateCreated
+        string  ActivistCodeName
         string  ActivistCodeType
         string  Scope
         string  InputType
         string  CreatedBy
         string  ContactedBy
         string  Committeename
-        date    DateCreated
         date    DateContacted
     }
 
     activist_codes {
-        string  Long_Name                   PK
+        int     ActivistCodeID              PK
+        string  Long_Name
         string  Type
         string  Medium
         string  Short
@@ -164,14 +164,15 @@ erDiagram
 -- ============================================================
 
 CREATE TABLE activist_codes (
-    long_name   VARCHAR(255)    NOT NULL,
-    type        VARCHAR(100),
-    medium      VARCHAR(100),
-    short       VARCHAR(50),
-    scope       VARCHAR(50),
-    activist    BOOLEAN,
+    activist_code_id    INT             NOT NULL,
+    long_name           VARCHAR(255)    NOT NULL,
+    type                VARCHAR(100),
+    medium              VARCHAR(100),
+    short               VARCHAR(50),
+    scope               VARCHAR(50),
+    activist            BOOLEAN,
 
-    CONSTRAINT pk_activist_codes PRIMARY KEY (long_name)
+    CONSTRAINT pk_activist_codes PRIMARY KEY (activist_code_id)
 );
 
 CREATE TABLE tags (
@@ -191,7 +192,6 @@ CREATE TABLE tags (
 
 CREATE TABLE contacts (
     vanid                           INT             NOT NULL,
-    address_id                      INT,                        -- FK added after addresses
     first                           VARCHAR(100),
     last                            VARCHAR(100),
     mid                             VARCHAR(50),
@@ -251,11 +251,6 @@ CREATE TABLE addresses (
                                 REFERENCES contacts(vanid)
                                 ON DELETE CASCADE
 );
-
-ALTER TABLE contacts
-    ADD CONSTRAINT fk_contact_preferred_addr
-    FOREIGN KEY (address_id) REFERENCES addresses(address_id)
-    ON DELETE SET NULL;
 
 CREATE TABLE contributions (
     contribution_id     INT             NOT NULL,
@@ -337,9 +332,9 @@ CREATE TABLE event_participants (
 
 CREATE TABLE activist_codes_applied (
     vanid               INT             NOT NULL,
-    activist_code_name  VARCHAR(255)    NOT NULL,
+    activist_code_id    INT             NOT NULL,
     date_created        DATE            NOT NULL,
-    activist_code_id    INT,
+    activist_code_name  VARCHAR(255),
     activist_code_type  VARCHAR(100),
     scope               VARCHAR(50),
     input_type          VARCHAR(100),
@@ -348,12 +343,12 @@ CREATE TABLE activist_codes_applied (
     committee_name      VARCHAR(255),
     date_contacted      DATE,
 
-    CONSTRAINT pk_activist_codes_applied    PRIMARY KEY (vanid, activist_code_name, date_created),
+    CONSTRAINT pk_activist_codes_applied    PRIMARY KEY (vanid, activist_code_id, date_created),
     CONSTRAINT fk_aca_contact               FOREIGN KEY (vanid)
                                             REFERENCES contacts(vanid)
                                             ON DELETE CASCADE,
-    CONSTRAINT fk_aca_code                  FOREIGN KEY (activist_code_name)
-                                            REFERENCES activist_codes(long_name)
+    CONSTRAINT fk_aca_code                  FOREIGN KEY (activist_code_id)
+                                            REFERENCES activist_codes(activist_code_id)
                                             ON DELETE RESTRICT
 );
 ```
@@ -369,8 +364,8 @@ CREATE TABLE activist_codes_applied (
 - A CONTACT can submit zero or many ONLINE_ACTIONs, and an ONLINE_ACTION must be submitted by one and only one CONTACT. An ONLINE_ACTION may optionally include a monetary amount (e.g., online donation).
 - A CONTACT can participate in zero or many EVENTs, and an EVENT can be attended by zero or many CONTACTs. Each participation activity must have and only have one EVENT_PARTICIPANTS record, identified by the composite key (VANID, Event_ID).
 - An EVENT can have zero or many EVENT_PARTICIPANTS. An EVENT can exist in the system before any CONTACT has signed up (zero participants).
-- A CONTACT can be tagged with zero or many ACTIVIST_CODEs, and an ACTIVIST_CODE can be applied to zero or many CONTACTs. Each application is recorded in ACTIVIST_CODES_APPLIED, identified by the composite key (VANID, ActivistCodeName, DateCreated). The same code can be applied to the same CONTACT more than once on different dates.
-- An ACTIVIST_CODE must exist in the ACTIVIST_CODES reference table before it can be applied to a CONTACT. Deleting an ACTIVIST_CODE is restricted if it has been applied to any CONTACT.
+- A CONTACT can be tagged with zero or many ACTIVIST_CODEs, and an ACTIVIST_CODE can be applied to zero or many CONTACTs. Each application is recorded in ACTIVIST_CODES_APPLIED, identified by the composite key (VANID, ActivistCodeID, DateCreated). The same code can be applied to the same CONTACT more than once on different dates.
+- An ACTIVIST_CODE must exist in the ACTIVIST_CODES reference table before it can be applied to a CONTACT. Deleting an ACTIVIST_CODE is restricted if it has been applied to any CONTACT. Note: `long_name` is not unique — two distinct codes share the name "Candidate" (ActivistCodeID 4991254 and 5431273, differing in type and scope).
 - TAGS are stored as a standalone reference table for internal labeling and categorization. TAGS have no direct foreign key relationship to other tables in this dataset; their association with contacts is recorded as a pipe-delimited string in ONLINE_ACTIONS and is not normalized.
 - A CONTACT carries denormalized contribution summary statistics (number, total, and average contribution amount) directly on the CONTACTS record as pre-computed aggregates derived from the CONTRIBUTIONS table.
 - A CONTACT can be flagged with communication suppression attributes (NoCall, NoEmail, NoMail) independently of one another.
@@ -391,8 +386,8 @@ CREATE TABLE activist_codes_applied (
 | FK: `activist_codes_applied.VANID` → `contacts` | ✅ PASS | 2 orphans / 73,657 (0.00%) |
 | FK: `event_participants.VANID` → `contacts` | ✅ PASS | 1 orphan / 11,287 (0.01%) |
 | FK: `online_actions.VANID` → `contacts` | ✅ PASS | 1 orphan / 4,645 (0.02%) |
-| `activist_codes_applied` — composite PK | ⚠️ NOTE | `VANID + ActivistCodeID` has 2 duplicate pairs; `date_created` added as 3rd PK column |
-| `activist_codes` — primary key | ⚠️ NOTE | Source file (`Activist Code List 2.xlsx`) has no numeric ID; `long_name` used as PK |
+| `activist_codes_applied` — composite PK | ✅ UPDATED | PK is now `(VANID, ActivistCodeID, DateCreated)`; FK references `activist_codes(activist_code_id)` |
+| `activist_codes` — primary key | ✅ UPDATED | PK changed from `long_name` to `activist_code_id` (integer); `long_name` is non-unique — two codes share the name "Candidate" |
 | `tags` — foreign key linkage | ⚠️ NOTE | No direct FK to other tables; `online_actions.Activist_Codes` stores pipe-delimited names (not normalized) |
 
 ---
@@ -414,6 +409,9 @@ SELECT COUNT(*), SUM(amount) FROM contributions_full
 
 ### Fix 3 — Denormalized fields corrected (`contacts`)
 5 contacts had `total_amount_of_contributions` and/or `number_of_contributions` out of sync with the `contributions` table. All 5 records have been corrected. Zero discrepancies remain.
+
+### Fix 5 — `activist_codes` primary key changed to `activist_code_id`
+`long_name` was the original PK but is not unique: two distinct codes share the name "Candidate" (ActivistCodeID 4991254 and 5431273, differing in type and scope). The PK has been changed to `activist_code_id` (integer, sourced from EveryAction). The FK in `activist_codes_applied` and its composite PK have been updated accordingly. `contacts.address_id` (orphaned column from the removed circular FK) has also been dropped from the schema.
 
 ### Fix 4 — `tags` table documented as unlinked
 A table comment has been added to `tags` marking it as unlinked. Tag-to-contact associations were not included in the EveryAction data export. The table exists as a reference but cannot be used for contact-level queries.

@@ -40,8 +40,18 @@ print("[1/8] activist_codes")
 ac = pd.read_excel("Activist Code List  2.xlsx", engine="openpyxl")
 ac.columns = ["type", "long_name", "medium", "short", "scope", "activist"]
 ac["activist"] = ac["activist"].map(lambda x: bool(x) if pd.notna(x) else None)
-ac = ac.dropna(subset=["long_name"]).drop_duplicates("long_name")
-load(ac, "activist_codes")
+ac = ac.dropna(subset=["long_name"])
+
+# Join activist_code_id from applied data (long_name alone is not unique)
+aca_ids = read_tsv("All Activist Codes Applied 9.27.21-4.9.26.xls")[
+    ["ActivistCodeID", "ActivistCodeName"]
+].rename(columns={"ActivistCodeID": "activist_code_id", "ActivistCodeName": "long_name"})
+aca_ids = aca_ids.drop_duplicates("activist_code_id")
+ac = ac.merge(aca_ids, on="long_name", how="left")
+ac = ac.dropna(subset=["activist_code_id"])
+ac["activist_code_id"] = ac["activist_code_id"].astype(int)
+ac = ac.drop_duplicates("activist_code_id")
+load(ac[["activist_code_id", "type", "long_name", "medium", "short", "scope", "activist"]], "activist_codes")
 
 # ── 2. tags ───────────────────────────────────────────────────────────────
 print("[2/8] tags")
@@ -71,7 +81,6 @@ db = db.rename(columns={
 for col in ["date_acquired", "date_created", "dob", "deceased_date"]:
     db[col] = to_date(db[col])
 fix_bools(db, ["deceased", "no_call", "no_email", "no_mail"])
-db["address_id"] = None  # set after addresses are loaded
 for col in ["prefix", "suffix"]:
     if col not in db.columns:
         db[col] = None
@@ -82,7 +91,7 @@ contacts_cols = [
     "dob", "date_acquired", "date_created", "deceased_date",
     "deceased", "no_call", "no_email", "no_mail",
     "number_of_contributions", "total_amount_of_contributions",
-    "average_contribution_amount", "origin_code_name", "address_id",
+    "average_contribution_amount", "origin_code_name",
 ]
 load(db[contacts_cols], "contacts")
 valid_vanids = set(db["vanid"].dropna().astype(int))
@@ -108,17 +117,6 @@ for col in ["date_created", "date_added"]:
 fix_bools(addr, ["is_preferred", "is_best_address", "is_complete_address", "usps_verified"])
 addr = addr[addr["vanid"].isin(valid_vanids)]
 load(addr, "addresses")
-
-# Update preferred address FK on contacts
-with ENGINE.connect() as conn:
-    conn.execute(text("""
-        UPDATE contacts c
-        SET address_id = a.address_id
-        FROM addresses a
-        WHERE a.vanid = c.vanid AND a.is_preferred = TRUE
-    """))
-    conn.commit()
-print("  ✓ preferred address FK updated on contacts")
 
 # ── 5. contributions ──────────────────────────────────────────────────────
 print("[5/8] contributions")
@@ -174,7 +172,7 @@ load(ep, "event_participants")
 
 # ── 7. activist_codes_applied ─────────────────────────────────────────────
 print("[7/8] activist_codes_applied")
-valid_codes = set(ac["long_name"].dropna())
+valid_code_ids = set(ac["activist_code_id"].dropna().astype(int))
 aca = read_tsv("All Activist Codes Applied 9.27.21-4.9.26.xls")
 aca = aca.rename(columns={
     "VANID": "vanid", "ActivistCodeID": "activist_code_id",
@@ -185,11 +183,12 @@ aca = aca.rename(columns={
 })
 aca["date_created"] = to_date(aca["date_created"])
 aca["date_contacted"] = to_date(aca["date_contacted"])
+aca["activist_code_id"] = pd.to_numeric(aca["activist_code_id"], errors="coerce")
 aca = aca[aca["vanid"].isin(valid_vanids)]
-aca = aca[aca["activist_code_name"].isin(valid_codes)]
-aca = aca.drop_duplicates(["vanid", "activist_code_name", "date_created"])
+aca = aca[aca["activist_code_id"].isin(valid_code_ids)]
+aca = aca.drop_duplicates(["vanid", "activist_code_id", "date_created"])
 load(aca[[
-    "vanid", "activist_code_name", "date_created", "activist_code_id",
+    "vanid", "activist_code_id", "date_created", "activist_code_name",
     "activist_code_type", "scope", "input_type", "created_by",
     "contacted_by", "committee_name", "date_contacted",
 ]], "activist_codes_applied")
