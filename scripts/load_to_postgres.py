@@ -167,7 +167,7 @@ ep = ev[[
 })
 ep["signup_date"] = to_date(ep["signup_date"])
 fix_bools(ep, ["hosted"])
-ep = ep[ep["vanid"].isin(valid_vanids)].drop_duplicates(["vanid", "event_id"])
+ep = ep[ep["vanid"].isin(valid_vanids)]
 load(ep, "event_participants")
 
 # ── 7. activist_codes_applied ─────────────────────────────────────────────

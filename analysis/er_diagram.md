@@ -87,6 +87,7 @@ erDiagram
     }
 
     event_participants {
+        int     EventParticipantsID         PK
         int     VANID                       FK
         int     Event_ID                    FK
         date    Signup_Date
@@ -311,17 +312,18 @@ CREATE TABLE events (
 );
 
 CREATE TABLE event_participants (
-    vanid               INT             NOT NULL,
-    event_id            INT             NOT NULL,
-    signup_date         DATE,
-    status              VARCHAR(50),
-    role                VARCHAR(100),
-    recruited_by        VARCHAR(255),
-    input_type          VARCHAR(100),
-    hours_completed     DECIMAL(5,2),
-    hosted              BOOLEAN         DEFAULT FALSE,
+    event_participants_id   SERIAL          NOT NULL,
+    vanid                   INT             NOT NULL,
+    event_id                INT             NOT NULL,
+    signup_date             DATE,
+    status                  VARCHAR(50),
+    role                    VARCHAR(100),
+    recruited_by            VARCHAR(255),
+    input_type              VARCHAR(100),
+    hours_completed         DECIMAL(5,2),
+    hosted                  BOOLEAN         DEFAULT FALSE,
 
-    CONSTRAINT pk_event_participants    PRIMARY KEY (vanid, event_id),
+    CONSTRAINT pk_event_participants    PRIMARY KEY (event_participants_id),
     CONSTRAINT fk_ep_contact            FOREIGN KEY (vanid)
                                         REFERENCES contacts(vanid)
                                         ON DELETE CASCADE,
@@ -362,7 +364,7 @@ CREATE TABLE activist_codes_applied (
 - A CONTACT can have zero or many phone numbers. Phone numbers (home, cell, work) are stored as attributes of the CONTACT rather than as a separate table.
 - A CONTACT can make zero or many CONTRIBUTIONs, and a CONTRIBUTION must belong to one and only one CONTACT. A CONTRIBUTION cannot exist without an associated CONTACT.
 - A CONTACT can submit zero or many ONLINE_ACTIONs, and an ONLINE_ACTION must be submitted by one and only one CONTACT. An ONLINE_ACTION may optionally include a monetary amount (e.g., online donation).
-- A CONTACT can participate in zero or many EVENTs, and an EVENT can be attended by zero or many CONTACTs. Each participation activity must have and only have one EVENT_PARTICIPANTS record, identified by the composite key (VANID, Event_ID).
+- A CONTACT can participate in zero or many EVENTs, and an EVENT can be attended by zero or many CONTACTs. A CONTACT can appear more than once for the same EVENT with different roles (e.g., "Ticket Purchaser" at signup and "Attendee" after completion). Each record is uniquely identified by a system-generated surrogate key `event_participants_id`.
 - An EVENT can have zero or many EVENT_PARTICIPANTS. An EVENT can exist in the system before any CONTACT has signed up (zero participants).
 - A CONTACT can be tagged with zero or many ACTIVIST_CODEs, and an ACTIVIST_CODE can be applied to zero or many CONTACTs. Each application is recorded in ACTIVIST_CODES_APPLIED, identified by the composite key (VANID, ActivistCodeID, DateCreated). The same code can be applied to the same CONTACT more than once on different dates.
 - An ACTIVIST_CODE must exist in the ACTIVIST_CODES reference table before it can be applied to a CONTACT. Deleting an ACTIVIST_CODE is restricted if it has been applied to any CONTACT. Note: `long_name` is not unique — two distinct codes share the name "Candidate" (ActivistCodeID 4991254 and 5431273, differing in type and scope).
@@ -381,6 +383,7 @@ CREATE TABLE activist_codes_applied (
 | `addresses.Address_ID` — uniqueness | ✅ PASS | 95,057 rows, all unique |
 | `online_actions.Submission_ID` — uniqueness | ✅ PASS | 10,434 rows, all unique |
 | `events.Event_ID` — uniqueness | ✅ PASS | 483 distinct events extracted from 27,276 participant rows |
+| `event_participants` — PK | ✅ UPDATED | 1,402 rows share the same (VANID, Event_ID); surrogate key `event_participants_id` (SERIAL) used as PK — one person can be both "Ticket Purchaser" and "Attendee" for the same event |
 | FK: `contributions.VANID` → `contacts` | ✅ PASS | 3 orphans / 7,772 (0.04%) |
 | FK: `addresses.VANID` → `contacts` | ✅ PASS | 3 orphans / 74,160 (0.00%) |
 | FK: `activist_codes_applied.VANID` → `contacts` | ✅ PASS | 2 orphans / 73,657 (0.00%) |
@@ -409,6 +412,9 @@ SELECT COUNT(*), SUM(amount) FROM contributions_full
 
 ### Fix 3 — Denormalized fields corrected (`contacts`)
 5 contacts had `total_amount_of_contributions` and/or `number_of_contributions` out of sync with the `contributions` table. All 5 records have been corrected. Zero discrepancies remain.
+
+### Fix 6 — `event_participants` primary key replaced with surrogate key
+原始数据中 1,402 行的 (VANID, Event_ID) 存在重复：同一人参加同一活动会产生两条记录，分别对应报名时（`Ticket Purchaser`）和完成后（`Attendee`）的状态。主键改为自增的 `event_participants_id`（SERIAL），保留所有行，无需去重。
 
 ### Fix 5 — `activist_codes` primary key changed to `activist_code_id`
 `long_name` was the original PK but is not unique: two distinct codes share the name "Candidate" (ActivistCodeID 4991254 and 5431273, differing in type and scope). The PK has been changed to `activist_code_id` (integer, sourced from EveryAction). The FK in `activist_codes_applied` and its composite PK have been updated accordingly. `contacts.address_id` (orphaned column from the removed circular FK) has also been dropped from the schema.
