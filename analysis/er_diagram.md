@@ -114,9 +114,9 @@ erDiagram
     }
 
     activist_codes_applied {
-        int     VANID                       FK
-        int     ActivistCodeID              FK
-        date    DateCreated
+        int     VANID                       PK, FK
+        int     ActivistCodeID              PK, FK
+        date    DateCreated                 PK
         string  ActivistCodeName
         string  ActivistCodeType
         string  Scope
