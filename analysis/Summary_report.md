@@ -3,7 +3,7 @@
 ## Before that, We want to say thanks to you all!
 First, a big thank you to Arizona List for sharing your data and giving us this hands-on opportunity. We truly appreciate the trust. Also A big thank you to all Arizona List staffs for your patience, care, and support! It means a lot to have a team that genuinely invests in interns' growth.
 
-And this analysis was put together using our data science background alongside AI assistance and vibe coding. Still a work in progress, but hoping this gives a useful first look at the data.
+And this analysis was put together using our data science background alongside AI assistance and vibe coding. If there’s anything you feel isn’t quite right, we’ll go back and review it again. Thank you for any feedback.
 
 ## Database
 
@@ -19,9 +19,9 @@ And this analysis was put together using our data science background alongside A
 3. [Direct Mail Opportunity: People Without an Email Address](#3-direct-mail-opportunity-people-without-an-email-address)
 4. [New Contacts Since January: Postcard Outreach](#4-new-contacts-since-january-postcard-outreach)
 5. [Lapsed Donor Identification and Priority Tiering](#5-lapsed-donor-identification-and-priority-tiering)
-6. [Geographic Breakdown: State-Level Comparison](#6-geographic-breakdown-state-level-comparison)
-7. [Geographic Breakdown: ZIP Code Heat Analysis](#7-geographic-breakdown-zip-code-heat-analysis)
-8. [Geographic Trends: City and County Over Time](#8-geographic-trends-city-and-county-over-time)
+6. [Geographic Breakdown: Per-Donor Giving by State](#6-geographic-breakdown-state-level-comparison)
+7. [Geographic Breakdown: Per-Donor Giving by ZIP Code](#7-geographic-breakdown-zip-code-analysis)
+8. [Geographic Breakdown: Per-Donor Giving by City and County](#8-geographic-trends-city-and-county-over-time)
 9. [Donation Trends: Year-Over-Year Time Series](#9-donation-trends-year-over-year-time-series)
 10. [Top 10 Largest Individual & Organization Donations](#10-top-10-largest-individual--organization-donations)
 
@@ -79,9 +79,18 @@ One known gap: records before 2019 are incomplete, so LC members who joined earl
 
 The LC represents just 5% of the full donor base — an intentionally exclusive group. At the same time, that leaves over 7,300 regular donors who could potentially be cultivated toward LC membership.
 
-### Chart
+### Charts
 
-![Donors vs. Leadership Council](lapsed_donor_reactivation/figures/donor_vs_leadership_council.svg)
+**Leadership Council membership over time (rolling 365-day snapshot):**
+
+![LC Members 2004–2026](figures/lc_members_2004_2026.png)
+
+Each data point counts how many unique LC members gave at least once in the 365 days ending on that date. This rolling window gives a stable year-by-year picture of active membership without being distorted by any single event.
+
+- LC membership grew from 33 in 2004 to a peak of **316 in 2018**, dipped during 2019–2021, then recovered to **333 in 2024**.
+- The current count as of April 2026 is **324**.
+- Early records (before ~2010) are incomplete and likely undercount actual membership — the post-2010 trend is more reliable.
+- The 2019–2021 dip aligns with pandemic disruption; the strong recovery since 2022 suggests the LC base has stabilized at a new high.
 
 ---
 
@@ -233,121 +242,105 @@ Value outranks recency in the ordering. A donor who gave $500/year for a decade 
 
 ---
 
-## 6. Geographic Breakdown: State-Level Comparison
+## 6. Geographic Breakdown: Per-Donor Giving by State
 
 ### The Question
-Where do our donors come from? How does giving volume and donor quality vary by state?
+Where do our donors come from? How much does the typical donor give, and how does that vary by state?
 
 ### Approach
 
-The original analysis only looked at Arizona. Expanding to all states opens up a more strategic question: which states represent high-potential audiences we may be underinvesting in?
-
-Total donation amount alone will always make AZ look dominant — it's where most of our donors live. But average donation size measures something different: individual donor capacity. A state with 20 donors averaging $1,500 per donation tells a very different story than a state with 500 donors averaging $50.
-
-Because AZ's total ($5.87M) is over 11x the next highest state ($509K), we produced two versions of the trend chart — one including AZ to show the full picture, and one excluding AZ so year-over-year movement in other states is actually visible.
+Total donation amount alone will always make AZ look dominant — it's where most of our donors live. But total dollars mix together two different things: how many donors a state has, and how much each person gives. To separate these, we use the **median** (the middle value for a typical donor) and the **IQR** (the range covering the middle 50% of donors) rather than simple averages, which are easily pulled up by a small number of very large gifts.
 
 ### What We Found
 
-| State | Total Amount | Number of Donations | Avg Donation Amount |
-|-------|-------------|-------|----------|
-| AZ | $5,868,051 | 45,229 | $130 |
-| CA | $508,850 | 719 | $708 |
-| DC | $505,244 | 317 | $1,594 |
-| MA | $185,238 | 106 | $1,748 |
-| TX | $51,534 | 58 | $889 |
-| NV | $20,351 | 62 | $328 |
+| State | Donors | Median lifetime giving |
+|-------|--------|----------------------|
+| Washington D.C. | 60 | ~$300 |
+| New York | 30 | ~$200 |
+| California | 175 | ~$175 |
+| Colorado | 31 | ~$120 |
+| Arizona | 6,935 | ~$100 |
+| Washington, Illinois, Texas | 33–46 | ~$100 |
+| Oregon | 33 | ~$80 |
 
-### Charts
+### Chart
 
-**Top 15 states by total giving:**
-![State Donations Total](figures/state_donations_total.png)
+**Per-donor lifetime giving by state (median + IQR, states with 30+ donors):**
 
-- Arizona dominates total volume with $5.87M, more than 11x the next highest state.
-- California and DC are nearly tied on total amount ($509K vs $505K), but DC has far fewer donors (317 vs 719), meaning DC donors give significantly more per person.
+![Donor Giving by State](figures/geo_state.png)
 
-**Year-over-year trends — top 12 states (including AZ):**
-![State Donation Trends](figures/state_donations_trends.png)
+Each dot is the median for that state; the vertical line shows the middle 50% of donors; dot size reflects number of donors.
 
-- AZ shows strong growth in 2024, reaching a record high of ~$700K.
-- Most non-AZ states show concentrated spikes in 2023–2024, suggesting election-cycle driven giving rather than consistent year-round engagement.
-- CA and DC have grown substantially since 2021, indicating expanding national reach.
+- **Washington D.C.** donors give the most per person (~$300 median), and the sample (60 donors) is large enough to be reliable.
+- **Arizona** has by far the largest donor pool (6,935 donors) but a lower median, reflecting a wide base that includes many small-dollar donors.
+- Out-of-state donors from DC, NY, and CA tend to give more per person than the typical Arizona donor — suggesting these are higher-capacity individuals worth cultivating.
 
 ---
 
-## 7. Geographic Breakdown: ZIP Code Heat Analysis
+## 7. Geographic Breakdown: Per-Donor Giving by ZIP Code
 
 ### The Question
-Which ZIP codes drive the most giving? And where are our donors located across the country?
+Which ZIP codes have the highest total giving? And within those, which ones have the strongest per-donor giving capacity?
 
 ### Approach
 
-**① Top 20 ZIP Code bar chart**
-Aggregates total amount and donation count by ZIP from PostgreSQL, ranks, and renders as a horizontal bar chart with inline annotations. Straightforward, useful for local field planning.
-
-**② National donor location bubble map**
-- Used `pgeocode` to convert ZIP codes to lat/lon coordinates
-- Bubble size driven by log₁₀ of total giving — log scaling prevents a handful of very large ZIPs from visually overwhelming everything else
-- Five color tiers from gray (< $1K) to deep red (≥ $100K)
-- Base map from the Census Bureau TIGER/Line state boundary shapefiles
-
-The map answers the question the bar chart can't: are we geographically concentrated, or do we have meaningful donor presence scattered across the country?
+We look at giving two ways: total dollars raised (to find our most active ZIP codes) and per-donor giving (to find where our highest-capacity donors live). Because a few very large gifts can skew totals, the per-donor chart uses winsorized averages (average after removing the top and bottom 5%) alongside the median.
 
 ### Charts
 
-**Top 20 ZIP Codes by total giving:**
+**Top 20 ZIP Codes by total contribution amount:**
 ![Top 20 ZIP Codes](figures/top20_zip_codes.png)
 
-- The top five ZIP codes are all in the 857xx range, which shows that giving is heavily concentrated in Tucson rather than spread evenly across different cities.
+- ZIP **85718** (Tucson, Catalina Foothills) leads all ZIP codes with $1,679,543 — more than three times the second-place ZIP.
+- The top five ZIP codes are all in the 857xx range, showing that giving is heavily concentrated in Tucson.
 
-**Top 20 ZIP Codes by total giving (excluding Pam Grissom — founder, not counted as donor):**
+**Top 20 ZIP Codes (excluding Pam Grissom — founder, not counted as a regular donor):**
 ![Top 20 ZIP Codes excl. Grissom](figures/top20_zip_codes_excl_grissom.png)
 
-- After removing Pam Grissom's contributions, 85718 drops from $1.68M to $569K, which means Pam Grissom donated over 1M!
+- After removing Pam Grissom's contributions, 85718 drops from $1.68M to $569K — meaning she alone accounted for over $1M from that ZIP code.
 
+**Per-donor lifetime giving by ZIP code (top 20 by donor count):**
+![Donor Giving by ZIP](figures/geo_zip.png)
+
+> **How to read this chart:** The green dot is the **median** — the middle value, unaffected by outliers. The bar is the **winsorized average** — the average after the top 5% and bottom 5% of gifts are removed. This prevents a single $100,000 donor from inflating the number for their entire ZIP code. When the bar is much taller than the dot, it means the ZIP still has a few very large donors even after trimming.
+
+- **85718** (Tucson north) and **85750** (Tucson northeast) lead on both median and average — the most concentrated source of high-value donors.
+- **85018** (Phoenix, Arcadia area) has the highest winsorized average (~$840), driven by a small number of very large donors.
+- In nearly every ZIP code, the average is well above the median, confirming that a few large donors exist in almost every neighborhood.
 
 **National donor location map:**
 ![Donor Location Map](figures/donor_location_map.png)
 
-- The vast majority of donors are concentrated in southern Arizona, particularly in the Tucson and Phoenix metro areas.
-- A meaningful cluster is visible on the East Coast (DC, MA, NY), consistent with the high average donation amounts seen in those states.
+- Donors are spread across 925 ZIP codes nationwide but are heavily concentrated in the Tucson and Phoenix metro areas.
+- A visible cluster on the East Coast (DC, MA, NY) matches the high per-donor giving seen in those states.
 
 ---
 
-## 8. Geographic Trends: City and County Over Time
+## 8. Geographic Breakdown: Per-Donor Giving by City and County
 
 ### The Question
-How have donation patterns shifted across cities and counties year over year?
+How does giving vary across Arizona cities and counties, both in terms of total activity and the quality of individual donors?
 
 ### Charts
 
-**City over time — number of donations (top 20 cities):**
-![City Donations Count](figures/city_donations_count.png)
+**Per-donor lifetime giving by city:**
+![Donor Giving Distribution by City](figures/geo_city_boxplot.png)
 
-- Top 5 cities by total number of donations: Tucson 23,011 / Phoenix 8,603 / Scottsdale 2,776 / Tempe 2,022  / Flagstaff 1,665.
+This box plot shows the full spread of lifetime giving for each city. The line in the middle of each box is the median; the box covers the middle 50% of donors; dots above are individual large donors (log scale).
 
-- Tucson consistently leads in donation volume, with Phoenix a distant second
+- **Paradise Valley** has by far the highest median (~$250), with consistently high giving across the board.
+- **Tucson** (2,682 donors) outperforms Phoenix on median giving (~$137 vs ~$100), despite being a similar type of city.
+- **Glendale** has the lowest median (~$40), with many small-dollar donors.
 
-**City over time — total amount (top 20 cities):**
-![City Donations Amount](figures/city_donations_amount.png)
+**Per-donor lifetime giving by county — Arizona:**
+![Donor Giving by County](figures/geo_county.png)
 
-- Top 5 cities by total donation amount: Tucson $3,829,899 / Phoenix $1,357,111 / Scottsdale $243,473 / Tempe $154,897 / Flagstaff $90,231.
-- Tucson and Phoenix dominate total dollar amounts, but Phoenix shows stronger growth in 2024–2025, narrowing the gap with Tucson.
-- Paradise Valley stands out: relatively few donations but a sharp spike in amount in 2025, indicating a small number of very large donations from a wealthy area.
-- Several mid-sized cities (Flagstaff, Mesa, Scottsdale) show consistent growth in total amount since 2020.
-- Lakeside ranks 14th by total amount ($28,536) despite having only 5 donors and 56 donations. Two donors account for 99% of that total — one gave a single $15,000 donations in March 2026, another gave $13,375 across 42 donations from 2004–2018.
+Bars are the winsorized average; green dots are the median.
 
-**County over time — number of donations (top 20 counties):**
-![County Donations Count](figures/county_donations_count.png)
-
-- Top 5 counties by number of donations : Pima 25,136 / Maricopa 18,278 / Coconino 1,810 / Pinal 1,155 / Yavapai 1,071.
-- Pima County accounts for the overwhelming majority of donations by count, with Maricopa County in second.
-- Most other counties contribute very small donation volumes, confirming that giving is highly concentrated in two metro areas.
-
-**County over time — total amount (top 20 counties):**
-![County Donations Amount](figures/county_donations_amount.png)
-
-- Top 5 counties by total donation amount: Pima $3,933,821 / Maricopa $2,073,250 / District of Columbia $534,534 / Hampshire $160,180 / Alameda $124,943.
-- Pima County leads total amount every year, but Maricopa County's share has grown steadily, suggesting Phoenix is becoming a more significant funding base.
+- **Pima County** (Tucson area) has the highest median (~$140) and a large donor base — the strongest county overall.
+- **Maricopa County** (Phoenix) has the most donors but a lower median (~$100), reflecting a broader and more varied donor base.
+- All other counties cluster near $100 median, suggesting that $100 is the typical Arizona donor gift regardless of location.
+- The gap between the bars and dots in every county shows that large donors exist everywhere — but they are most concentrated in Pima.
 
 ---
 
